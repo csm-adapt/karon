@@ -1,8 +1,29 @@
-======
-convey
-======
+.. include:: ../README.rst
 
-This is the documentation of **convey**.
+This is the documentation of **convey**, a package for taking data from
+the intuitive, orderly, and facile data entry enabled by tabular data
+structures to flexible and extensible hierarchical data structures.
+
+
+Contents
+========
+
+.. toctree::
+   :maxdepth: 2
+
+   License <license>
+   Authors <authors>
+   Changelog <changelog>
+   Module Reference <api/modules>
+
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
+
 
 .. note::
 
@@ -36,23 +57,3 @@ This is the documentation of **convey**.
     and `classical
     <http://www.sphinx-doc.org/en/stable/domains.html#info-field-lists>`__
     style.
-
-
-Contents
-========
-
-.. toctree::
-   :maxdepth: 2
-
-   License <license>
-   Authors <authors>
-   Changelog <changelog>
-   Module Reference <api/modules>
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
