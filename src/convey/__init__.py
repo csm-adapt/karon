@@ -7,3 +7,6 @@ try:
     __version__ = get_distribution(dist_name).version
 except DistributionNotFound:
     __version__ = 'unknown'
+
+from .sample import Sample
+from convey.exceptions import RequirementError
