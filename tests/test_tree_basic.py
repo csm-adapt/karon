@@ -1,10 +1,10 @@
 import pytest
-from convey.tree import Node
-from convey.tree import (PreorderTree,
-                         PostorderTree,
-                         InorderTree,
-                         BreadthTree)
-from convey.tree import empty_like
+from karon.tree import Node
+from karon.tree import (PreorderTree,
+                        PostorderTree,
+                        InorderTree,
+                        BreadthTree)
+from karon.tree import empty_like
 
 
 ##### Test Node Properties #####

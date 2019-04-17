@@ -6,7 +6,7 @@ console script. To run this script uncomment the following line in the
 entry_points section in setup.py:
 
     [console_scripts]
-    fibonacci = convey.skeleton:run
+    fibonacci = karon.skeleton:run
 
 Then run `python setup.py install` which will install the command `fibonacci`
 inside your current environment.
@@ -21,7 +21,7 @@ import argparse
 import sys
 import logging
 
-from convey import __version__
+from karon import __version__
 
 __author__ = "Branden Kappes"
 __copyright__ = "Branden Kappes"
@@ -60,7 +60,7 @@ def parse_args(args):
     parser.add_argument(
         '--version',
         action='version',
-        version='convey {ver}'.format(ver=__version__))
+        version='karon {ver}'.format(ver=__version__))
     parser.add_argument(
         dest="n",
         help="n-th Fibonacci number",

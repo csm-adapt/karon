@@ -1,5 +1,9 @@
 {
+  "projects/tests/test_example.py::test_aggregate_and_reduce": true,
+  "projects/tests/test_example.py::test_inherit_and_reduce": true,
+  "projects/tests/test_example.py::test_propogate": true,
   "tests/test_operational_nodes.py::test_node_permissions": true,
   "tests/test_qualitymade.py": true,
+  "tests/test_read_excel.py::test_read_excel": true,
   "tests/test_sample.py::test_sample_copy_constructor": true
 }

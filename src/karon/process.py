@@ -1,6 +1,6 @@
-from convey import Sample
-from convey.decorators import requires, expects
-from convey.decorators import (readwrite)
+from karon import Sample
+from karon.decorators import requires, expects
+from karon.decorators import (readwrite)
 
 
 @requires("name")

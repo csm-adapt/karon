@@ -1,4 +1,4 @@
-from convey.sample import Sample
+from karon.sample import Sample
 
 
 def test_sample():

@@ -1,9 +1,9 @@
 import pytest
-from convey.tree.operational import OpNode
-from convey.tree import (PreorderTree,
-                         PostorderTree,
-                         InorderTree,
-                         BreadthTree)
+from karon.tree.operational import OpNode
+from karon.tree import (PreorderTree,
+                        PostorderTree,
+                        InorderTree,
+                        BreadthTree)
 
 
 ##### Test OpNode #####

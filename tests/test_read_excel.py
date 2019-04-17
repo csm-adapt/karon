@@ -1,9 +1,9 @@
 import pytest
-from convey.io import read_excel
+from karon.io import read_excel
 
 
 @pytest.fixture
-def data_fixture():
+def qm_data():
     return {
         'filename': 'data/tracking.xlsx',
         'sheetnames': [
@@ -92,6 +92,63 @@ def data_fixture():
     }
 
 
+@pytest.fixture
+def example_data():
+    return {
+        'filename': 'data/example.xlsx',
+        'sheetnames': [
+            'build',
+            'mechanical',
+            'porosity'
+        ],
+        'samples': [
+            'e4f6efde-abdb-4a02-a25a-3c3859857aee',
+            'e8a80a70-18cc-44b9-8668-4f479918f13a',
+            '398a8f61-9707-45d8-802d-84bd11179a56',
+            'e0276301-425d-4d14-9bb4-05c6e3414772',
+            '2983b9dd-227a-4136-83c6-473e2deac44d',
+            '85bf6cf2-22ac-49e8-862d-f192781f73a3',
+            '5b91f720-6a2f-456b-a14f-bb961d1f80dd',
+            '94073a4f-cd2f-46dc-95c0-37d60b32e9ad',
+            '7bc7c8e8-dcc6-4317-8518-d600f26573ed',
+            'e0b7b18c-d025-4beb-856a-7a0f054c9ea2',
+            'c1e2c204-62f3-4ed6-9226-35747a43fb9c',
+            'b397eac8-87a0-47c4-b5ab-f9514bf50bfa',
+            '5022fa10-98d1-4dc0-b35e-4e800ab3cce6',
+            'd9e2da61-80dc-9521-2c6b-9e31c4999d81',
+            '3036de92-0d52-4f51-a0c0-422f5ad3d8db',
+            'd887d4d2-d9ab-4673-8d69-d0daf8af8551',
+            '11fe2186-ba63-4b69-8735-25fee5cda5d4',
+            '3a50216b-50b3-4212-b7fe-4bd96605556f',
+            'c37290e2-1f8e-8820-8ef5-9adc49859d44',
+            'e6b3b1c3-ad38-4fc1-82cf-7e301a4aba90',
+            'e224bfca-f917-40de-ad6d-12b70e21b456',
+            'f29ebef4-7f77-4048-a1e3-2af0ca3f046f'
+        ],
+        'build columns': [
+            'name',
+            'parent name',
+            'composition',
+            'laser power (W)',
+            'laser speed (mm/s)',
+            'hatch spacing (mm)',
+            'spot size (um)'
+        ],
+        'mechanical columns': [
+            'name',
+            'parent name',
+            'modulus (GPa)',
+            'yield strength (MPa)'
+        ],
+        'porosity columns': [
+            'name',
+            'parent name',
+            'max pore size (um)',
+            'neighbor (um)'
+        ]
+    }
+
+
 def join(series):
     result = []
     for aseries in series:
@@ -99,42 +156,73 @@ def join(series):
     return result
 
 
-def test_read_excel(data_fixture):
-    dfix = data_fixture
+# def test_read_excel(qm_data):
+#     dfix = qm_data
+#     # ##### expected usage ##### #
+#     sheets = [read_excel(dfix['filename'], sheetname)
+#               for sheetname in dfix['sheetnames']]
+#     # check that all samples are present
+#     expected = set(dfix['samples'])
+#     actual = set(join([df['NAME'] for df in sheets]))
+#     diff = (actual - expected).union(expected - actual)
+#     assert len(diff) == 0, \
+#         f"{diff} samples were not read properly."
+#     # check that all content names are expected
+#     expected = set(dfix['print columns'])
+#     actual = set(sheets[0].columns)
+#     diff = (actual - expected).union(expected - actual)
+#     assert len(diff) == 0, \
+#         f"{diff} columns names were not read properly from 'print' sheet."
+#     # ibid
+#     expected = set(dfix['xct columns'])
+#     actual = set(sheets[1].columns)
+#     diff = (actual - expected).union(expected - actual)
+#     assert len(diff) == 0, \
+#         f"{diff} columns names were not read properly from 'CT' sheet."
+#     # ibid
+#     expected = set(dfix['vickers columns'])
+#     actual = set(sheets[2].columns)
+#     diff = (actual - expected).union(expected - actual)
+#     assert len(diff) == 0, \
+#     f"{diff} columns names were not read properly from 'Vickers' sheet."
+#     # check contents
+#     sheet = sheets[2]
+#     cell = dfix['cells'][0]
+#     mask = (sheet['NAME'] == cell['name']).values
+#     actual = sheet[cell['column']].iloc[mask][0]
+#     expected = cell['value']
+#     assert all([all([i == j for i,j in zip(a, b)])
+#                 for a, b in zip(actual, expected)]), \
+#         f'\nguess ({type(actual)}):{actual}\n' \
+#         f'check ({type(expected)}):{expected}\n'
+
+
+def test_examples(example_data):
+    dfix = example_data
     # ##### expected usage ##### #
     sheets = [read_excel(dfix['filename'], sheetname)
               for sheetname in dfix['sheetnames']]
     # check that all samples are present
     expected = set(dfix['samples'])
-    actual = set(join([df['NAME'] for df in sheets]))
+    actual = set(join([df['name'] for df in sheets]))
     diff = (actual - expected).union(expected - actual)
     assert len(diff) == 0, \
         f"{diff} samples were not read properly."
     # check that all content names are expected
-    expected = set(dfix['print columns'])
+    expected = set(dfix['build columns'])
     actual = set(sheets[0].columns)
     diff = (actual - expected).union(expected - actual)
     assert len(diff) == 0, \
-        f"{diff} columns names were not read properly from 'print' sheet."
+        f"{diff} columns names were not read properly from 'build' sheet."
     # ibid
-    expected = set(dfix['xct columns'])
+    expected = set(dfix['mechanical columns'])
     actual = set(sheets[1].columns)
     diff = (actual - expected).union(expected - actual)
     assert len(diff) == 0, \
-        f"{diff} columns names were not read properly from 'CT' sheet."
+        f"{diff} columns names were not read properly from 'mechanical' sheet."
     # ibid
-    expected = set(dfix['vickers columns'])
+    expected = set(dfix['porosity columns'])
     actual = set(sheets[2].columns)
     diff = (actual - expected).union(expected - actual)
     assert len(diff) == 0, \
-    f"{diff} columns names were not read properly from 'Vickers' sheet."
-    # check contents
-    sheet = sheets[2]
-    cell = dfix['cells'][0]
-    mask = (sheet['NAME'] == cell['name']).values
-    actual = sheet[cell['column']].iloc[mask][0]
-    expected = cell['value']
-    assert all([all([i == j for i,j in zip(a, b)])
-                for a, b in zip(actual, expected)]), \
-        f'\nguess ({type(actual)}):{actual}\n' \
-        f'check ({type(expected)}):{expected}\n'
+    f"{diff} columns names were not read properly from 'porosity' sheet."

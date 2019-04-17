@@ -1,11 +1,11 @@
 import pytest
 import warnings
-from convey import RequirementError
-from convey.decorators import expects, requires
-from convey.decorators import (readwrite,
-                               readable,
-                               writeable,
-                               immutable)
+from karon import RequirementError
+from karon.decorators import expects, requires
+from karon.decorators import (readwrite,
+                              readable,
+                              writeable,
+                              immutable)
 
 
 def test_expects():

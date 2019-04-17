@@ -1,5 +1,5 @@
 import pytest
-from convey.tree import NLRTree
+from karon.tree import NLRTree
 from ..qualitymade import read
 
 

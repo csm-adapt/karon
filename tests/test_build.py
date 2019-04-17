@@ -1,7 +1,7 @@
 import pytest
-from convey.tree.build import from_parent
-from convey.tree import NLRTree
-from convey.tree.operational import Node
+from karon.tree.build import from_parent
+from karon.tree import NLRTree
+from karon.tree.operational import Node
 
 
 @pytest.fixture

@@ -1,8 +1,8 @@
 import warnings
-from convey import RequirementError
-from convey.process import (build,
-                            vickers,
-                            xct)
+from karon import RequirementError
+from karon.process import (build,
+                           vickers,
+                           xct)
 
 
 def test_build():

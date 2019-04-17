@@ -1,7 +1,7 @@
 import pandas as pd
-from convey.process import (build, vickers, xct)
-from convey.io import read_excel as general_excel_reader
-from convey.tree.build import from_parent
+from karon.process import (build, vickers, xct)
+from karon.io import read_excel as general_excel_reader
+from karon.tree.build import from_parent
 import re
 
 

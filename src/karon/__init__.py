@@ -9,4 +9,4 @@ except DistributionNotFound:
     __version__ = 'unknown'
 
 from .sample import Sample
-from convey.exceptions import RequirementError
+from karon.exceptions import RequirementError

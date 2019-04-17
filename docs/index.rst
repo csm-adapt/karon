@@ -1,6 +1,6 @@
 .. include:: ../README.rst
 
-This is the documentation of **convey**, a package for taking data from
+This is the documentation of **karon**, a package for taking data from
 the intuitive, orderly, and facile data entry enabled by tabular data
 structures to flexible and extensible hierarchical data structures.
 
