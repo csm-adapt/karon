@@ -5,5 +5,6 @@
   "tests/test_operational_nodes.py::test_node_permissions": true,
   "tests/test_qualitymade.py": true,
   "tests/test_read_excel.py::test_read_excel": true,
-  "tests/test_sample.py::test_sample_copy_constructor": true
+  "tests/test_sample.py::test_sample_copy_constructor": true,
+  "tests/test_tree_basic.py::test_node_copy": true
 }

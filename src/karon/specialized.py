@@ -1,8 +1,11 @@
-from . import Node
-from . import (PreorderTree,
-               PostorderTree,
-               BreadthTree)
-from . import empty_like
+__all__ = ["OpNode", "as_opnode"]
+
+
+from .tree import Node
+from .tree import (PreorderTree,
+                        PostorderTree,
+                        BreadthTree)
+from .tree import empty_like
 
 
 class OpNode(Node):
@@ -106,8 +109,8 @@ class OpNode(Node):
         return results
 
     def gets(self,
-             func=lambda node: node.contents,
-             order: str = 'preorder',
+             func,
+             order: str = 'postorder',
              callback=None):
         """
         Apply a "gets" operation to each child node. The (optional)
@@ -131,17 +134,18 @@ class OpNode(Node):
         subsamples, etc.--the leaf nodes are the most recent on any
         subtree and appear first in the list of results.
 
-        :param func, callable: (optional) "Gets"-like function applied
-            to each child node. This will typically be a function that
-            operates on the contents of the node, for example, returning
-            a specific keyed value from dictionary-like node contents.
-            Default: return the node contents
+        :param func: "Gets"-like function applied to each child node. This
+            will typically be a function that operates on the contents of
+            the node, for example, returning a specific keyed value from
+            dictionary-like node contents.
+        :type func: Unary function with signature `func(node: Node) -> object`
         :param order, str: (optional) The order in which to return the
             child nodes. Default: A postorder (LRN tree).
-        :param callback, callable: (optional) Signature: f(self, results)
+        :param callback: (optional) Signature: `f(node: Node, results)`
             Function to apply to the list of results. This can be used
             to set an attribute of the current node with a reduction
             of the properties of the descendent nodes.
+        :type callback: Binary function.
         :return:
             List of the results of `func` applied to each descendant node.
         """
@@ -173,6 +177,8 @@ class OpNode(Node):
             to each child node. This will typically be a function that
             operates on, or replaces, the contents of the node. Because
             this is generally destructive, no default is set.
+        :type func: Unary function with signature
+            `func(node: Node) -> None`
         :param order, str: (optional) The order in which to return the
             child nodes. Default: A preorder (NLR) tree.
         :return: None
@@ -240,3 +246,20 @@ class OpNode(Node):
             return self._writeable
         else:
             self._writeable = bool(flag)
+
+
+def as_opnode(root):
+    """
+    Returns the tree defined at root as a tree of Operational Nodes (OpNode).
+    """
+    # check if all nodes are already OpNodes
+    for node in PreorderTree(root):
+        if not isinstance(node, OpNode):
+            copy = empty_like(root, OpNode)
+            for src, dst in zip(LRNTree(root), LRNTree(copy)):
+                dst.contents = src.contents.copy()
+                if isinstance(src, OpNode):
+                    dst.writeable(src.writeable())
+                    dst.readable(src.readable())
+            return copy
+    return root

@@ -10,10 +10,10 @@
 # subsequent iteration. For now assume an unreadable/unwritable node
 # property extends to all attributes.
 
-from .tree.operational import OpNode as BaseNode
+from .specialized import OpNode
 
 
-class Sample(BaseNode):
+class Sample(OpNode):
     def __init__(self, **attributes):
         readable = attributes.get('readable', True)
         writeable = attributes.get('writeable', True)
@@ -21,10 +21,10 @@ class Sample(BaseNode):
             del attributes['readable']
         if 'writeable' in attributes:
             del attributes['writeable']
-        BaseNode.__init__(self,
-                          contents=attributes,
-                          readable=readable,
-                          writeable=writeable)
+        OpNode.__init__(self,
+                        contents=attributes,
+                        readable=readable,
+                        writeable=writeable)
 
 
 

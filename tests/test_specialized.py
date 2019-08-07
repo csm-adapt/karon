@@ -1,5 +1,5 @@
 import pytest
-from karon.tree.operational import OpNode
+from karon.specialized import OpNode
 from karon.tree import (PreorderTree,
                         PostorderTree,
                         InorderTree,

@@ -1,5 +1,8 @@
 import pytest
-from karon.io import read_excel
+from karon import Sample
+from karon.decorators import readwrite, requires
+from karon.io.excel import ExcelIO
+from karon.io.pandas import to_dataframe
 
 
 @pytest.fixture
@@ -149,80 +152,21 @@ def example_data():
     }
 
 
-def join(series):
-    result = []
-    for aseries in series:
-        result.extend(list(aseries))
-    return result
-
-
-# def test_read_excel(qm_data):
-#     dfix = qm_data
-#     # ##### expected usage ##### #
-#     sheets = [read_excel(dfix['filename'], sheetname)
-#               for sheetname in dfix['sheetnames']]
-#     # check that all samples are present
-#     expected = set(dfix['samples'])
-#     actual = set(join([df['NAME'] for df in sheets]))
-#     diff = (actual - expected).union(expected - actual)
-#     assert len(diff) == 0, \
-#         f"{diff} samples were not read properly."
-#     # check that all content names are expected
-#     expected = set(dfix['print columns'])
-#     actual = set(sheets[0].columns)
-#     diff = (actual - expected).union(expected - actual)
-#     assert len(diff) == 0, \
-#         f"{diff} columns names were not read properly from 'print' sheet."
-#     # ibid
-#     expected = set(dfix['xct columns'])
-#     actual = set(sheets[1].columns)
-#     diff = (actual - expected).union(expected - actual)
-#     assert len(diff) == 0, \
-#         f"{diff} columns names were not read properly from 'CT' sheet."
-#     # ibid
-#     expected = set(dfix['vickers columns'])
-#     actual = set(sheets[2].columns)
-#     diff = (actual - expected).union(expected - actual)
-#     assert len(diff) == 0, \
-#     f"{diff} columns names were not read properly from 'Vickers' sheet."
-#     # check contents
-#     sheet = sheets[2]
-#     cell = dfix['cells'][0]
-#     mask = (sheet['NAME'] == cell['name']).values
-#     actual = sheet[cell['column']].iloc[mask][0]
-#     expected = cell['value']
-#     assert all([all([i == j for i,j in zip(a, b)])
-#                 for a, b in zip(actual, expected)]), \
-#         f'\nguess ({type(actual)}):{actual}\n' \
-#         f'check ({type(expected)}):{expected}\n'
-
-
 def test_examples(example_data):
-    dfix = example_data
+    @readwrite
+    @requires("name", "parent name")
+    def generic(**contents):
+        return Sample(**contents)
+
+
+    expected = example_data
+    actual = ExcelIO(build=generic,
+                     mechanical=generic,
+                     porosity=generic).load(expected['filename'])
     # ##### expected usage ##### #
-    sheets = [read_excel(dfix['filename'], sheetname)
-              for sheetname in dfix['sheetnames']]
-    # check that all samples are present
-    expected = set(dfix['samples'])
-    actual = set(join([df['name'] for df in sheets]))
-    diff = (actual - expected).union(expected - actual)
-    assert len(diff) == 0, \
-        f"{diff} samples were not read properly."
-    # check that all content names are expected
-    expected = set(dfix['build columns'])
-    actual = set(sheets[0].columns)
-    diff = (actual - expected).union(expected - actual)
-    assert len(diff) == 0, \
-        f"{diff} columns names were not read properly from 'build' sheet."
-    # ibid
-    expected = set(dfix['mechanical columns'])
-    actual = set(sheets[1].columns)
-    diff = (actual - expected).union(expected - actual)
-    assert len(diff) == 0, \
-        f"{diff} columns names were not read properly from 'mechanical' sheet."
-    # ibid
-    expected = set(dfix['porosity columns'])
-    actual = set(sheets[2].columns)
-    diff = (actual - expected).union(expected - actual)
-    assert len(diff) == 0, \
-    f"{diff} columns names were not read properly from 'porosity' sheet."
+    names = set(node.contents['name'] for node in actual)
+    assert names == set(expected['samples'])
+    columns = set()
+    for key in ('build columns', 'mechanical columns', 'porosity columns'):
+        columns = columns.union(expected[key])
+    assert set(to_dataframe(actual).columns) == columns

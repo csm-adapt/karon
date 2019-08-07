@@ -1,10 +1,10 @@
-__all__ = ["Node", "BinaryNode",
-           "Tree",
+__all__ = ["Node", "BinaryNode", "Tree",
            "PreorderTree", "NLRTree",
            "InorderTree", "LNRTree",
            "PostorderTree", "LRNTree",
            "BreadthTree",
            "empty_like"]
+
 
 class Node(object):
     def __init__(self, contents: object = None) -> object:
@@ -14,7 +14,7 @@ class Node(object):
         :param contents: The contents that this node contains.
         :type contents: object
         """
-        self._parent = None
+        self._parent = None # external function (add_child) relies on this.
         self._children = []
         self._contents = contents
 
@@ -40,7 +40,7 @@ class Node(object):
     def children(self):
         return self._children
 
-    def add_child(self, child):
+    def add_child(self, child) -> None:
         # ensure the child is a Node
         if not isinstance(child, Node):
             raise ValueError("A child must be itself a Node.")
@@ -62,13 +62,13 @@ class Node(object):
         child._parent = self
         self._children.append(child)
 
-    def remove_child(self, orphan):
-        for i in reversed(range(len(self._children))):
+    def remove_child(self, orphan) -> None:
+        for i in reversed(range(len(self.children))):
             if self._children[i] is orphan:
                 del self._children[i]
 
 
-def BinaryNode(Node):
+class BinaryNode(Node):
     def __init__(self, contents=None):
         super().__init__(contents=contents)
         self._children = [None, None]
@@ -209,16 +209,19 @@ class BreadthTree(Tree):
             yield child
 
 
-def empty_like(root):
+def empty_like(root, basetype=None):
     """
     Creates an empty collection of nodes that mimic the structure
     found in root.
 
     :param root: Subtree to be duplicated.
+    :param basetype: Type of nodes to create.
     :return: Empty structure that matches the structure of the
         template tree.
     """
-    top = Node()
+    if basetype is None:
+        basetype = type(root)
+    top = basetype()
     for child in root.children:
-        top.add_child(empty_like(child))
+        top.add_child(empty_like(child, basetype))
     return top
