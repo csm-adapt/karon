@@ -2,6 +2,7 @@ __all__ = ["generate_tree", "from_parent"]
 
 
 import warnings
+import numpy as np
 
 
 def generate_tree(get_nodeid, get_parent, cmp=None):
@@ -22,18 +23,27 @@ def generate_tree(get_nodeid, get_parent, cmp=None):
         tree = generate_tree(get_name, get_parent)(nodes)
 
     :param get_nodeid: Unary function that extracts a field from a Node object.
-    :type get_nodeid: Unary function, signature: nodeExtract(Node).
+    :type get_nodeid: Unary function, signature: get_nodeid(Node).
     :param get_parent: Unary function that extracts a field from a Node object.
     :type get_parent: Unary function or None. If a unary function, the signature
-        is parentID(Node)
+        is get_parent(Node)
     :param cmp: (optional) Unary function that compares the results of
         parentID and nodeExtract. Returns True if the values match,
         False otherwise.
     :return: Unary function, signature: f(array-like-of-Nodes)
     """
 
+    def is_null(obj):
+        try:
+            return np.isnan(obj)
+        except TypeError:
+            return not bool(obj)
+
     def equal(lhs, rhs):
-        return lhs == rhs
+        if is_null(lhs) or is_null(rhs):
+            return False
+        else:
+            return lhs == rhs
 
     def build(nodelist):
         """
