@@ -64,14 +64,7 @@ class ExcelIO(BaseIO):
             except IndexError:
                 break
         # set defaults, e.g. sheet_name --> None
-        if 'sheet_name' not in kwds:
-            kwds['sheet_name'] = None
-        elif isinstance(kwds['sheet_name'], int):
-            index = kwds['sheet_name']
-            xl = pd.ExcelFile(kwds['io'])
-            kwds['sheet_name'] = [xl.sheet_names[index]]
-        elif isinstance(kwds['sheet_name'], str):
-            kwds['sheet_name'] = kwds['sheet_name']
+        kwds['sheet_name'] = kwds.get('sheet_name', None)
         # read the file
         df = pd.read_excel(fobj, **kwds)
         # convert each element to handle lists, tuples, etc.

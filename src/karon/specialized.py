@@ -144,7 +144,7 @@ class OpNode(Node):
         :param callback: (optional) Signature: `f(node: Node, results)`
             Function to apply to the list of results. This can be used
             to set an attribute of the current node with a reduction
-            of the properties of the descendent nodes.
+            of the properties of the descendant nodes.
         :type callback: Binary function.
         :return:
             List of the results of `func` applied to each descendant node.
