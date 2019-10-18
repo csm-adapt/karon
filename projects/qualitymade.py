@@ -21,6 +21,17 @@ ifiles = {
 }
 output_prefix = 'qualitymade'
 
+# This is a Node generating function. The idea behind this is to
+# abstract away the details of node creation and simplify the verification
+# that a node contains certain fields, and has the properties expected at
+# the point of creation. This could also have been done within the class
+# and these checks handled through inheritance, but I think this is more
+# explicit: the developer using karon does not have to inherit from an
+# exponentially growing set of classes (readable, writeable, read-writeable,
+# specify requirements, specify recommends, etc.) and deal with the added
+# complexities of the MRO. This just seems much cleaner. It also allows the
+# user to set some programmatic checks before, such as checking for null
+# entries, as in this example, to set a default.
 @readwrite
 @requires("Sample Name", "Parent Sample Name")
 def generic(**contents):
@@ -57,18 +68,24 @@ def propagate(parent_key, child_key=None, overwrite=False):
     :return: Unary function, signature: f(tree-like)
     """
     def get_from_parent(node):
+        # get(key) returns an unary function that accepts a node as an
+        # argument and returns the value paired to "key".
         return get(parent_key)(node)
 
     def put_in_child(node):
+        # placing the overwrite logic within "propagate" makes this
+        # decision point more explicit and avoids hidden behavior where
+        # the decision to overwrite is imposed in the library.
         if overwrite or (child_key not in node.contents):
             value = get_from_parent(node.parent)
             if value is not None:
                 put(child_key)(node, value)
 
     def func(root):
-        # root = as_opnode(root)
         root.puts(put_in_child)
 
+    # handle defaults: if child_key is not specified, assume it is the
+    # same as the parent_key.
     if child_key is None:
         child_key = parent_key
 
@@ -91,12 +108,20 @@ def aggregate(gets, reduce=None):
     :return: Unary function, signature: f(tree-like)
     """
     def func(root):
-        # root = as_opnode(root)
         root.gets(gets, callback=reduce)
     return func
 
 
 def mean(alist):
+    """
+    Calculates the mean from a list of values. None values are excluded
+    from the calculation. If any exception is raised, the list is
+    returned.
+
+    :param alist: Iterable of values over which the mean is to be calculated.
+    :type alist: iterable
+    :return: mean, or if a mean cannot be calculated, the original list.
+    """
     try:
         return np.mean([x for x in alist if (x is not None)])
     except:
@@ -113,6 +138,15 @@ def is_null(obj):
 
 
 def strcmp(*transforms):
+    """
+    Returns a function for comparing strings after first applying
+    zero or more transforms, e.g. `str.lower`.
+
+    :param transforms: String transformations, unary function(s) that
+        accept(s), and return(s), a string.
+    :type transforms: unary functions, f(str) -> str
+    :return: Unary function, f(str, str) -> bool
+    """
     def func(lhs, rhs):
         if is_null(lhs) or is_null(rhs):
             return False
@@ -126,6 +160,14 @@ def strcmp(*transforms):
 
 
 def mean_reduce(key):
+    """
+    To perform a reduction over `key`, returns a function compatible with
+    the `reduce` parameter in the `aggregate` function.
+
+    :param key: key over which the reduction is to be performed.
+    :type key: str
+    :return: Binary function, f(Node, array-like) -> value
+    """
     class Functor(object):
         def __init__(self, key):
             self.key = f"mean {key}"
@@ -136,19 +178,40 @@ def mean_reduce(key):
     return Functor(key)
 
 
-def get_attributes(root):
+def get_attributes(root, exclude={"Sample Name", "Parent Sample Name"}):
+    """
+    Returns a list of unique attributes accessible from the tree
+    originating at `root`. This excludes "Sample Name" and
+    "Parent Sample Name" from the list of attributes.
+
+    :param root: Root node of the tree.
+    :type root: Node
+    :param exclude: Set of attributes to exclude from the list. Default:
+        "Sample Name" and "Parent Sample Name".
+    :type exclude: set
+    :return: All unique attributes.
+    :rtype: list
+    """
     attr = []
     for node in LRNTree(root):
         attr.extend(node.contents.keys())
-    attr = set(attr) - {"Sample Name", "Parent Sample Name"}
+    attr = set(attr) - set(exclude)
     return list(attr)
 
 
+# Creates a reader that stores records according to the Node generating
+# function "generic" (readwrite, requires "Sample Name" and
+# "Parent Sample Name"
 reader = ExcelIO(default=generic)
+
+# Constructs a master list of nodes, read from a dictionary of files
+# (ifiles) whose key:value pairs are (who supplied the file):(file name)
 nodes = []
 for contact, fname in iter(ifiles.items()):
     try:
+        # reads a list of "new" nodes from file "fname"
         new = reader.load(fname)
+        # for every node, add a contact field based on contact
         for node in new:
             node.contents['Contact'] = contact
         nodes.extend(new)
@@ -156,29 +219,23 @@ for contact, fname in iter(ifiles.items()):
         print(f"Error while reading {fname}")
         raise
 
-# for node in nodes:
-#     print(f"{node.contents['Sample Name']} ({node.contents['Parent Sample Name']})")
-# import sys
-# sys.exit(0)
-
+# Generate trees that connect parent nodes ("Parent Sample Node") to
+# child nodes ("Sample Name"). Any node that does not have a parent
+# is a root. lineage is a list of all roots generated from the nodes
+# read above.
 lineage = generate_tree(
     get_nodeid=get('Sample Name'),
     get_parent=get('Parent Sample Name'),
     cmp=strcmp(str.strip))(nodes)
 
-# print(f"{get_attributes(lineage[0])}")
-# import sys
-# sys.exit(0)
-
+# generate a set of unique attributes across all root nodes (tree)
 attributes = set()
 for root in lineage:
     attributes = attributes.union(get_attributes(root))
 # attributes = list(attributes)
 
-# print('\n'.join(attributes))
-# import sys
-# sys.exit(0)
-
+# aggregate (collect data from child nodes) then propagate (push data
+# down to children).
 for root in lineage:
     for attr in attributes:
         # propagate(attr)(root)
@@ -200,6 +257,7 @@ for node in nodes:
             elif len(node.contents[key]) == 1:
                 node.contents[key] = node.contents[key][0]
 
+# create a dataframe from the node data.
 df = to_dataframe(nodes)
 
 def to_excel(dataframe, filename):
@@ -263,17 +321,23 @@ def to_pif(dataframe, filename):
                               email='edward.a.pierson@lmco.com',
                               tags='Lockheed Martin Corporation')
 
+        # Every PIF record is a System object
         system = pif.System()
+        # create a unique identifier. This must be URL friendly.
         system.uid = url_friendly(str(row['Sample Name']))
+        # name the PIF
         system.names = str(row['Sample Name'])
+        # record the parent sample name
         system.sub_systems = pif.System(
             uid=url_friendly(str(row['Parent Sample Name'])),
             names = str(row['Sample Name']))
+        # set the contact information. By default, I set this as LMCO.
         system.contacts = {
             'Wolf': wolf_contact,
             'CMU': cmu_contact,
             'Mines': mines_contact}.get(row['Contact'], lmco_contact)()
 
+        # Certain fields we treat as special
         special = ['Sample Name', 'Parent Sample Name', 'Contact']
         filelist = None
         for column, value in row.items():
@@ -285,10 +349,17 @@ def to_pif(dataframe, filename):
                 continue
             # handle FILEs.
             if column.startswith('FILE'):
+                # add the FILE column to the list of special columns
+                # so we don't add this as a property.
                 special.append(column)
+                # split on colon -- we don't need "FILE" in the name
                 split = column.split(':')
-                # value = value if isinstance(value, (list, tuple)) else [value]
+                # Convert the filename (or the string-representation of
+                # a list of filenames, e.g. [file1.png, file2.png]) to
+                # a list of files
                 value = str(value).strip("[]").split(",")
+                # create a file reference for each file and store these as
+                # a list of FileReference objects.
                 for path in value:
                     file = pif.FileReference(relative_path=str(path),
                                              tags=':'.join(split[1:]).strip())
@@ -296,6 +367,15 @@ def to_pif(dataframe, filename):
                         filelist.append(file)
                     except AttributeError:
                         filelist = [file]
+        # create a special property that holds all the files
+        pty = pif.Property(name="Files",
+                           files=filelist)
+        try:
+            system.properties.append(pty)
+        except AttributeError:
+            # if this is the first property, append to a None value will
+            # fail. Handle this edge case.
+            system.properties = [pty]
         # everything else is a property
         for column, value in row.items():
             # special columns have already been handled.
@@ -311,15 +391,21 @@ def to_pif(dataframe, filename):
                     }.get(type(value), type(value))(value)
             # otherwise, construct a property value.
             pty = pif.Property(name=column,
-                               scalars=value,
-                               files=filelist)
+                               scalars=value)
+            # units are stored, by convention in parentheses, e.g.
+            # laser speed (mm/s). This regular expression extracts the the
+            # last term surrounded by parentheses.
             try:
                 pty.units = re.search('.*\(([^)]+)\)\s*$', column).group(1)
             except AttributeError:
+                # no units were found...
                 pass
             try:
+                # add the property
                 system.properties.append(pty)
             except AttributeError:
+                # if this is the first property, append to a None value will
+                # fail. Handle this edge case.
                 system.properties = [pty]
         # done
         return system
@@ -331,5 +417,7 @@ def to_pif(dataframe, filename):
         pif.dump(records, ofs)
 
 
+# save the results to Excel (in the QM Excel metadata format) and PIF
+# for rendering on Citrine.
 to_excel(df, f"{output_prefix}.xlsx")
 to_pif(df, f"{output_prefix}.json")
