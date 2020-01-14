@@ -4,6 +4,15 @@ import ast
 import pandas as pd
 
 
+import sys
+import logging
+_logging = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG,
+                    stream=sys.stdout,
+                    format="[%(asctime)s] %(levelname)s:%(name)s:%(message)s",
+                    datefmt="%Y-%m-%d %H:%M:%S")
+
+
 class ExcelIO(BaseIO):
     """
     Reads data from (optionally multiple) worksheets in Microsoft Excel.
@@ -68,12 +77,18 @@ class ExcelIO(BaseIO):
         # read the file
         df = pd.read_excel(fobj, **kwds)
         # convert each element to handle lists, tuples, etc.
+        _logging.debug(f"Reading {fobj}...")
         for sheet_name in df:
+            _logging.debug(f"Reading {sheet_name}...")
             df[sheet_name] = df[sheet_name].applymap(convert)
+            _logging.debug(f"Read {len(df[sheet_name])} entries from {sheet_name}.")
+        _logging.debug(f"Read {len(df)} sheets from {fobj}.")
         # convert each entry into a node
-        nodes = [self[key](**row)
+        _logging.debug(f"Creating nodes from {fobj}...")
+        nodes = [self[str(key)](**row)
                  for key in df.keys()
                  for (index, row) in df[key].iterrows()]
+        _logging.debug(f"Created {len(nodes)} nodes from {fobj}.")
         # done
         return nodes
 

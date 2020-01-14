@@ -1,4 +1,4 @@
-import os
+import os, sys
 import re
 import numpy as np
 import pandas as pd
@@ -11,15 +11,25 @@ from karon.tree.util import get, put
 # from karon.specialized import as_opnode
 from karon.io.pandas import to_dataframe
 
+def log(msg):
+    print(msg)
+    sys.stdout.flush()
+
 # set up working directory
-os.chdir("/Users/bkappes/Desktop/workspace/quality made")
+os.chdir("/Users/bkappes/Dropbox (BeamTeam)/projects/Quality Made/data/updates/2019-12-20")
 
 ifiles = {
-    'Wolf': 'LHW-build-20191014.xlsx',
-    'CMU': 'Characterization-CMU-20191014.xlsx',
-    'Mines': 'Characterization-Mines-20191014.xlsx'
+    'Wolf': 'LHW-build.xlsx',
+    'CMU': 'Characterization-CMU.xlsx',
+    'Mines': 'Characterization-Mines.xlsx',
+    # 'LM': 'Characterization-LM.xlsx'
 }
 output_prefix = 'qualitymade'
+# output_prefix = 'characterization'
+# output_prefix = 'build'
+
+log(f"Building {output_prefix} relationships from "
+    f"({', '.join(list(ifiles.values()))})")
 
 # This is a Node generating function. The idea behind this is to
 # abstract away the details of node creation and simplify the verification
@@ -123,9 +133,10 @@ def mean(alist):
     :return: mean, or if a mean cannot be calculated, the original list.
     """
     try:
-        return np.mean([x for x in alist if (x is not None)])
+        return np.nanmean([float(x) for x in alist if (x is not None)])
     except:
-        return alist
+        # return alist
+        return None
 
 
 def is_null(obj):
@@ -204,8 +215,11 @@ def get_attributes(root, exclude={"Sample Name", "Parent Sample Name"}):
 # "Parent Sample Name"
 reader = ExcelIO(default=generic)
 
+log("Generated reader.")
+
 # Constructs a master list of nodes, read from a dictionary of files
 # (ifiles) whose key:value pairs are (who supplied the file):(file name)
+log("Constructing nodes...")
 nodes = []
 for contact, fname in iter(ifiles.items()):
     try:
@@ -219,34 +233,46 @@ for contact, fname in iter(ifiles.items()):
         print(f"Error while reading {fname}")
         raise
 
+log(f"{len(nodes)} nodes constructed.")
+
 # Generate trees that connect parent nodes ("Parent Sample Node") to
 # child nodes ("Sample Name"). Any node that does not have a parent
 # is a root. lineage is a list of all roots generated from the nodes
 # read above.
+log("Generating tree structures...")
+
 lineage = generate_tree(
     get_nodeid=get('Sample Name'),
     get_parent=get('Parent Sample Name'),
     cmp=strcmp(str.strip))(nodes)
 
+log(f"{len(lineage)} trees generated.")
+
 # generate a set of unique attributes across all root nodes (tree)
+log("Generating attribute set...")
 attributes = set()
 for root in lineage:
     attributes = attributes.union(get_attributes(root))
 # attributes = list(attributes)
+log(f"{len(attributes)} identified.")
 
 # aggregate (collect data from child nodes) then propagate (push data
 # down to children).
+log("Aggregating/propagating between nodes...")
 for root in lineage:
     for attr in attributes:
         # propagate(attr)(root)
-        aggregate(get(attr),
-                  reduce=put(attr, overwrite=False))(root)
+        # aggregate(get(attr),
+        #           reduce=put(attr, overwrite=False))(root)
+        # propagate(attr)(root)
+        # aggregate and propagate reductions
+        for reduction in (mean_reduce(attr),):
+            aggregate(get(attr), reduce=reduction)(root)
+            propagate(reduction.key)(root)
         propagate(attr)(root)
-        # # aggregate and propagate reductions
-        # for reduction in (mean_reduce(attr),):
-        #     aggregate(get(attr), reduce=reduction)(root)
-        #     propagate(reduction.key)(root)
+log("Finished aggregating/propagating data between nodes.")
 
+log("Cleaning up empty attributes...")
 # drop any propagated null values and the lists they create
 for node in nodes:
     for key, value in iter(node.contents.items()):
@@ -256,9 +282,16 @@ for node in nodes:
                 node.contents[key] = ''
             elif len(node.contents[key]) == 1:
                 node.contents[key] = node.contents[key][0]
+log("Finished cleaning empty attributes.")
 
 # create a dataframe from the node data.
-df = to_dataframe(nodes)
+# df = to_dataframe(nodes)
+log("Generating pandas.DataFrame from roots...")
+roots_only = to_dataframe(lineage)
+log(f"{len(roots_only)} records stored in roots DataFrame.")
+log("Generating pandas.DataFrame from all nodes...")
+full = to_dataframe(nodes)
+log(f"{len(full)} records created from all nodes.")
 
 def to_excel(dataframe, filename):
     """
@@ -335,7 +368,8 @@ def to_pif(dataframe, filename):
         system.contacts = {
             'Wolf': wolf_contact,
             'CMU': cmu_contact,
-            'Mines': mines_contact}.get(row['Contact'], lmco_contact)()
+            'Mines': mines_contact,
+            'LM': lmco_contact}.get(row['Contact'], lmco_contact)()
 
         # Certain fields we treat as special
         special = ['Sample Name', 'Parent Sample Name', 'Contact']
@@ -390,8 +424,12 @@ def to_pif(dataframe, filename):
                         tuple: list
                     }.get(type(value), type(value))(value)
             # otherwise, construct a property value.
-            pty = pif.Property(name=column,
-                               scalars=value)
+            try:
+                pty = pif.Property(name=column,
+                                   scalars=value)
+            except:
+                print(f"{column}: {value}")
+                raise
             # units are stored, by convention in parentheses, e.g.
             # laser speed (mm/s). This regular expression extracts the the
             # last term surrounded by parentheses.
@@ -419,5 +457,12 @@ def to_pif(dataframe, filename):
 
 # save the results to Excel (in the QM Excel metadata format) and PIF
 # for rendering on Citrine.
-to_excel(df, f"{output_prefix}.xlsx")
-to_pif(df, f"{output_prefix}.json")
+log("Writing roots DataFrame to Excel and PIF...")
+to_excel(roots_only, f"{output_prefix}-roots.xlsx")
+to_pif(roots_only, f"{output_prefix}-roots.json")
+log("Finished writing roots DataFrame to Excel and PIF.")
+
+log("Writing nodes DataFrame to Excel and PIF...")
+to_excel(full, f"{output_prefix}-full.xlsx")
+to_pif(full, f"{output_prefix}-full.json")
+log("Finished writing nodes DataFrame to Excel and PIF.")
