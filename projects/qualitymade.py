@@ -16,12 +16,12 @@ def log(msg):
     sys.stdout.flush()
 
 # set up working directory
-os.chdir("/Users/bkappes/Dropbox (BeamTeam)/projects/Quality Made/data/updates/2019-12-20")
+os.chdir("/Users/bkappes/Dropbox (BeamTeam)/projects/Quality Made/data/updates/2020-03-26")
 
 ifiles = {
     'Wolf': 'LHW-build.xlsx',
-    'CMU': 'Characterization-CMU.xlsx',
-    'Mines': 'Characterization-Mines.xlsx',
+    # 'CMU': 'Characterization-CMU.xlsx',
+    # 'Mines': 'Characterization-Mines.xlsx',
     # 'LM': 'Characterization-LM.xlsx'
 }
 output_prefix = 'qualitymade'
@@ -86,7 +86,9 @@ def propagate(parent_key, child_key=None, overwrite=False):
         # placing the overwrite logic within "propagate" makes this
         # decision point more explicit and avoids hidden behavior where
         # the decision to overwrite is imposed in the library.
-        if overwrite or (child_key not in node.contents):
+        permission = (overwrite or
+                      not is_null(node.contents.get(child_key, None)))
+        if permission:
             value = get_from_parent(node.parent)
             if value is not None:
                 put(child_key)(node, value)
@@ -122,23 +124,6 @@ def aggregate(gets, reduce=None):
     return func
 
 
-def mean(alist):
-    """
-    Calculates the mean from a list of values. None values are excluded
-    from the calculation. If any exception is raised, the list is
-    returned.
-
-    :param alist: Iterable of values over which the mean is to be calculated.
-    :type alist: iterable
-    :return: mean, or if a mean cannot be calculated, the original list.
-    """
-    try:
-        return np.nanmean([float(x) for x in alist if (x is not None)])
-    except:
-        # return alist
-        return None
-
-
 def is_null(obj):
     try:
         return np.isnan(obj).any()
@@ -170,7 +155,79 @@ def strcmp(*transforms):
     return func
 
 
-def mean_reduce(key):
+def maximum(key):
+    """
+    To perform a reduction over `key`, returns a function compatible with
+    the `reduce` parameter in the `aggregate` function.
+
+    :param key: key over which the reduction is to be performed.
+    :type key: str
+    :return: Binary function, f(Node, array-like) -> value
+    """
+    class Functor(object):
+        def __init__(self, key):
+            self.key = f"max {key}"
+
+        @staticmethod
+        def minimum(alist):
+            """
+            Calculates the mean from a list of values. None values are excluded
+            from the calculation. If any exception is raised, the list is
+            returned.
+
+            :param alist: Iterable of values over which the mean is to be calculated.
+            :type alist: iterable
+            :return: mean, or if a mean cannot be calculated, the original list.
+            """
+            try:
+                return np.nanmax([float(x) for x in alist if (x is not None)])
+            except:
+                # return alist
+                return None
+
+        def __call__(self, node, arr):
+            return put(self.key)(node, Functor.maximum(arr))
+
+    return Functor(key)
+
+
+def minimum(key):
+    """
+    To perform a reduction over `key`, returns a function compatible with
+    the `reduce` parameter in the `aggregate` function.
+
+    :param key: key over which the reduction is to be performed.
+    :type key: str
+    :return: Binary function, f(Node, array-like) -> value
+    """
+    class Functor(object):
+        def __init__(self, key):
+            self.key = f"min {key}"
+
+        @staticmethod
+        def minimum(alist):
+            """
+            Calculates the mean from a list of values. None values are excluded
+            from the calculation. If any exception is raised, the list is
+            returned.
+
+            :param alist: Iterable of values over which the mean is to be calculated.
+            :type alist: iterable
+            :return: mean, or if a mean cannot be calculated, the original list.
+            """
+            try:
+                return np.nanmin([float(x) for x in alist if (x is not None)])
+            except:
+                # return alist
+                return None
+
+        def __call__(self, node, arr):
+            return put(self.key)(node, Functor.minimum(arr))
+
+    return Functor(key)
+
+
+def mean(key):
     """
     To perform a reduction over `key`, returns a function compatible with
     the `reduce` parameter in the `aggregate` function.
@@ -183,8 +240,93 @@ def mean_reduce(key):
         def __init__(self, key):
             self.key = f"mean {key}"
 
+        @staticmethod
+        def mean(alist):
+            """
+            Calculates the mean from a list of values. None values are excluded
+            from the calculation. If any exception is raised, the list is
+            returned.
+
+            :param alist: Iterable of values over which the mean is to be calculated.
+            :type alist: iterable
+            :return: mean, or if a mean cannot be calculated, the original list.
+            """
+            try:
+                return np.nanmean([float(x) for x in alist if (x is not None)])
+            except:
+                # return alist
+                return None
+
         def __call__(self, node, arr):
-            return put(self.key)(node, mean(arr))
+            return put(self.key)(node, Functor.mean(arr))
+
+    return Functor(key)
+
+
+def std(key):
+    """
+    To perform a reduction over `key`, returns a function compatible with
+    the `reduce` parameter in the `aggregate` function.
+
+    :param key: key over which the reduction is to be performed.
+    :type key: str
+    :return: Binary function, f(Node, array-like) -> value
+    """
+    class Functor(object):
+        def __init__(self, key):
+            self.key = f"stddev {key}"
+
+        @staticmethod
+        def std(alist):
+            """
+            Calculates the mean from a list of values. None values are excluded
+            from the calculation. If any exception is raised, the list is
+            returned.
+
+            :param alist: Iterable of values over which the mean is to be calculated.
+            :type alist: iterable
+            :return: mean, or if a mean cannot be calculated, the original list.
+            """
+            try:
+                return np.nanstd([float(x) for x in alist if (x is not None)])
+            except:
+                # return alist
+                return None
+
+        def __call__(self, node, arr):
+            return put(self.key)(node, Functor.std(arr))
+
+    return Functor(key)
+
+
+def unique(key):
+    """
+    To perform a reduction over `key`, returns a function compatible with
+    the `reduce` parameter in the `aggregate` function.
+
+    :param key: key over which the reduction is to be performed.
+    :type key: str
+    :return: Binary function, f(Node, array-like) -> value
+    """
+    class Functor(object):
+        def __init__(self, key):
+            self.key = key
+
+        @staticmethod
+        def make_hashable(arr):
+            if isinstance(arr, str):
+                return arr
+            try:
+                return tuple(Functor.make_hashable(x) for x in arr)
+            except TypeError:
+                return arr
+
+        def __call__(self, node, arr):
+            unique = tuple(set(Functor.make_hashable(arr)))
+            unique = tuple(u for u in unique if u is not None)
+            unique = {0: lambda x: None,
+                      1: lambda x: x[0]}.get(len(unique), lambda x: x)(unique)
+            return put(self.key)(node, unique)
 
     return Functor(key)
 
@@ -225,8 +367,12 @@ for contact, fname in iter(ifiles.items()):
     try:
         # reads a list of "new" nodes from file "fname"
         new = reader.load(fname)
-        # for every node, add a contact field based on contact
+        # for every node...
         for node in new:
+            # ... remove empty fields
+            node.contents = {k: v for k, v in node.contents.items()
+                             if not (is_null(v) and k != "Parent Sample Name")}
+            # ... add a contact field based on contact
             node.contents['Contact'] = contact
         nodes.extend(new)
     except:
@@ -262,11 +408,15 @@ log("Aggregating/propagating between nodes...")
 for root in lineage:
     for attr in attributes:
         # propagate(attr)(root)
-        # aggregate(get(attr),
-        #           reduce=put(attr, overwrite=False))(root)
+        # aggregate(get(attr), reduce=put(attr, overwrite=False))(root)
         # propagate(attr)(root)
         # aggregate and propagate reductions
-        for reduction in (mean_reduce(attr),):
+        # for reduction in (mean_reduce(attr),):
+        for reduction in (unique(attr),
+                          mean(attr),
+                          std(attr),
+                          minimum(attr),
+                          maximum(attr)):
             aggregate(get(attr), reduce=reduction)(root)
             propagate(reduction.key)(root)
         propagate(attr)(root)
@@ -428,8 +578,10 @@ def to_pif(dataframe, filename):
                 pty = pif.Property(name=column,
                                    scalars=value)
             except:
-                print(f"{column}: {value}")
-                raise
+                pty = pif.Property(name=column,
+                                   scalars=str(value))
+                # print(f"{column}: {value}")
+                # raise
             # units are stored, by convention in parentheses, e.g.
             # laser speed (mm/s). This regular expression extracts the the
             # last term surrounded by parentheses.
