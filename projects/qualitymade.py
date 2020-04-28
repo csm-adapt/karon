@@ -8,7 +8,7 @@ from karon.io import ExcelIO
 from karon.tree import LRNTree
 from karon.tree.build import generate_tree
 from karon.tree.util import get, put
-# from karon.specialized import as_opnode
+# from karon.operational import as_opnode
 from karon.io.pandas import to_dataframe
 
 def log(msg):
@@ -16,13 +16,13 @@ def log(msg):
     sys.stdout.flush()
 
 # set up working directory
-os.chdir("/Users/bkappes/Dropbox (BeamTeam)/projects/Quality Made/data/updates/2020-03-26")
+os.chdir("/Users/bkappes/Dropbox (BeamTeam)/projects/Quality Made/data/updates/2020-04-23")
 
 ifiles = {
     'Wolf': 'LHW-build.xlsx',
-    # 'CMU': 'Characterization-CMU.xlsx',
-    # 'Mines': 'Characterization-Mines.xlsx',
-    # 'LM': 'Characterization-LM.xlsx'
+    'CMU': 'Characterization-CMU.xlsx',
+    'Mines': 'Characterization-Mines.xlsx',
+    'LM': 'Characterization-LM.xlsx'
 }
 output_prefix = 'qualitymade'
 # output_prefix = 'characterization'
@@ -155,148 +155,32 @@ def strcmp(*transforms):
     return func
 
 
-def maximum(key):
+def is_container(obj):
     """
-    To perform a reduction over `key`, returns a function compatible with
-    the `reduce` parameter in the `aggregate` function.
+    Checks if the object is a container, that is, an iterable,
+    but not a string.
 
-    :param key: key over which the reduction is to be performed.
-    :type key: str
-    :return: Binary function, f(Node, array-like) -> value
+    :param obj: Object to be tested.
+    :return: True if object is a container, False otherwise.
     """
-    class Functor(object):
-        def __init__(self, key):
-            self.key = f"max {key}"
-
-        @staticmethod
-        def minimum(alist):
-            """
-            Calculates the mean from a list of values. None values are excluded
-            from the calculation. If any exception is raised, the list is
-            returned.
-
-            :param alist: Iterable of values over which the mean is to be calculated.
-            :type alist: iterable
-            :return: mean, or if a mean cannot be calculated, the original list.
-            """
-            try:
-                return np.nanmax([float(x) for x in alist if (x is not None)])
-            except:
-                # return alist
-                return None
-
-        def __call__(self, node, arr):
-            return put(self.key)(node, Functor.maximum(arr))
-
-    return Functor(key)
+    if hasattr(obj, '__iter__') and not isinstance(obj, str):
+        return True
+    return False
 
 
-def minimum(key):
-    """
-    To perform a reduction over `key`, returns a function compatible with
-    the `reduce` parameter in the `aggregate` function.
-
-    :param key: key over which the reduction is to be performed.
-    :type key: str
-    :return: Binary function, f(Node, array-like) -> value
-    """
-    class Functor(object):
-        def __init__(self, key):
-            self.key = f"min {key}"
-
-        @staticmethod
-        def minimum(alist):
-            """
-            Calculates the mean from a list of values. None values are excluded
-            from the calculation. If any exception is raised, the list is
-            returned.
-
-            :param alist: Iterable of values over which the mean is to be calculated.
-            :type alist: iterable
-            :return: mean, or if a mean cannot be calculated, the original list.
-            """
-            try:
-                return np.nanmin([float(x) for x in alist if (x is not None)])
-            except:
-                # return alist
-                return None
-
-        def __call__(self, node, arr):
-            return put(self.key)(node, Functor.minimum(arr))
-
-    return Functor(key)
+def get_first_non_null(node, keys):
+    if not is_container(keys):
+        keys = (keys,)
+    # check which keys are in node.contents and are non null
+    nonnull = [k for k in keys if not is_null(node.contents.get(k, None))]
+    # return the first matching, non-null value
+    try:
+        return node.contents[nonnull[0]]
+    except IndexError:
+        return None
 
 
-def mean(key):
-    """
-    To perform a reduction over `key`, returns a function compatible with
-    the `reduce` parameter in the `aggregate` function.
-
-    :param key: key over which the reduction is to be performed.
-    :type key: str
-    :return: Binary function, f(Node, array-like) -> value
-    """
-    class Functor(object):
-        def __init__(self, key):
-            self.key = f"mean {key}"
-
-        @staticmethod
-        def mean(alist):
-            """
-            Calculates the mean from a list of values. None values are excluded
-            from the calculation. If any exception is raised, the list is
-            returned.
-
-            :param alist: Iterable of values over which the mean is to be calculated.
-            :type alist: iterable
-            :return: mean, or if a mean cannot be calculated, the original list.
-            """
-            try:
-                return np.nanmean([float(x) for x in alist if (x is not None)])
-            except:
-                # return alist
-                return None
-
-        def __call__(self, node, arr):
-            return put(self.key)(node, Functor.mean(arr))
-
-    return Functor(key)
-
-
-def std(key):
-    """
-    To perform a reduction over `key`, returns a function compatible with
-    the `reduce` parameter in the `aggregate` function.
-
-    :param key: key over which the reduction is to be performed.
-    :type key: str
-    :return: Binary function, f(Node, array-like) -> value
-    """
-    class Functor(object):
-        def __init__(self, key):
-            self.key = f"stddev {key}"
-
-        @staticmethod
-        def std(alist):
-            """
-            Calculates the mean from a list of values. None values are excluded
-            from the calculation. If any exception is raised, the list is
-            returned.
-
-            :param alist: Iterable of values over which the mean is to be calculated.
-            :type alist: iterable
-            :return: mean, or if a mean cannot be calculated, the original list.
-            """
-            try:
-                return np.nanstd([float(x) for x in alist if (x is not None)])
-            except:
-                # return alist
-                return None
-
-        def __call__(self, node, arr):
-            return put(self.key)(node, Functor.std(arr))
-
-    return Functor(key)
+# ########## Aggregation/Propagation Functions ############### #
 
 
 def unique(key):
@@ -310,28 +194,204 @@ def unique(key):
     """
     class Functor(object):
         def __init__(self, key):
-            self.key = key
+            self.key = key.strip()
 
         @staticmethod
         def make_hashable(arr):
-            if isinstance(arr, str):
-                return arr
-            try:
+            if is_container(arr):
                 return tuple(Functor.make_hashable(x) for x in arr)
-            except TypeError:
+            else:
                 return arr
 
         def __call__(self, node, arr):
             unique = tuple(set(Functor.make_hashable(arr)))
             unique = tuple(u for u in unique if u is not None)
-            unique = {0: lambda x: None,
-                      1: lambda x: x[0]}.get(len(unique), lambda x: x)(unique)
+            if len(unique) == 0:
+                unique = None
+            elif len(unique) == 1:
+                unique = unique[0]
+            # unique = {0: lambda x: None,
+            #           1: lambda x: x[0]}.get(len(unique), lambda x: x)(unique)
             return put(self.key)(node, unique)
 
     return Functor(key)
 
 
-def get_attributes(root, exclude={"Sample Name", "Parent Sample Name"}):
+def flatten(key):
+    """
+        To perform a reduction over `key`, returns a function compatible with
+        the `reduce` parameter in the `aggregate` function.
+
+        :param key: key over which the reduction is to be performed.
+        :type key: str
+        :return: Binary function, f(Node, array-like) -> value
+        """
+
+    class Functor(object):
+        def __init__(self, key):
+            self.key = key
+
+        @staticmethod
+        def flatten(arr):
+            def ensure_tuple(x):
+                if is_container(x):
+                    return tuple(x)
+                else:
+                    return (x,)
+            # -- end, ensure_iter() -- #
+            return sum([ensure_tuple(x) for x in arr], tuple())
+
+        def __call__(self, node, arr):
+            result = tuple(x for x in Functor.flatten(arr) if x is not None)
+            # check if result is a single value
+            if len(result) == 1:
+                return None
+            # check if result is the same as arr
+            try:
+                if np.all(np.asarray(arr) == np.asarray(result)):
+                    return None
+            except:
+                pass
+            return put(self.key)(node, result)
+
+    return Functor(key)
+
+
+# ############### Node Functions ############### #
+class ArrayOnly:
+    """
+    Base class to ensure calculations are performed only on Real Arrays.
+    """
+    def __init__(self, key):
+        self.key = key
+
+    def __call__(self, node):
+        arr = node.contents.get(self.key, None)
+        if is_container(arr):
+            try:
+                # make sure this is, or can be coerced into, an array of floats
+                arr = np.asarray(arr, dtype=float)
+            except:
+                return None
+            result = type(self).function(arr)
+            if result is not None:
+                node.contents[self.name] = result
+            return result
+        return None
+
+
+class Maximum(ArrayOnly):
+    function = np.nanmax
+
+    def __init__(self, key):
+        super().__init__(key)
+        self.name = f"max {key}"
+
+
+class Minimum(ArrayOnly):
+    function = np.nanmin
+
+    def __init__(self, key):
+        super().__init__(key)
+        self.name = f"min {key}"
+
+
+class Mean(ArrayOnly):
+    function = np.nanmean
+
+    def __init__(self, key):
+        super().__init__(key)
+        self.name = f"mean {key}"
+
+
+class StdDev(ArrayOnly):
+    function = np.nanstd
+
+    def __init__(self, key):
+        super().__init__(key)
+        self.name = f"std {key}"
+
+
+class RemeltRatio:
+    def __init__(self, wire_diameter=None, wire_area=None):
+        """
+        Remelt ratio is defined by the wire feed rate, wire area, melt area,
+        and melt pool velocity:
+
+        ..math::
+
+            \rho = 1 - \frac{WFR A_{wire}}{A_{melt} v_{melt}}
+
+        :param wire_diameter:
+        :param wire_area:
+        """
+        self.name = "remelt ratio"
+        self.wireArea_ = None
+        self.wireFeedRateKeys_ = []
+        self.meltAreaKeys_ = []
+        self.meltVelocityKeys_ = []
+        self.set_wire_diameter(wire_diameter)
+        self.set_wire_area(wire_area)
+
+    def set_wire_diameter(self, diameter):
+        if diameter is not None:
+            self.wireArea_ = np.pi*diameter**2/4
+        return self
+
+    def set_wire_area(self, area):
+        if area is not None:
+            self.wireArea_ = area
+        return self
+
+    def _add(self, attr, name):
+        setattr(self, attr, getattr(self, attr) + [name])
+        return self
+
+    def add_wire_feed_rate_key(self, name):
+        return self._add('wireFeedRateKeys_', name)
+
+    def add_melt_area_key(self, name):
+        return self._add('meltAreaKeys_', name)
+
+    def add_melt_velocity_key(self, name):
+        return self._add('meltVelocityKeys_', name)
+
+    def __call__(self, node):
+        # --> get wireFeedRate
+        wireFeedRate = get_first_non_null(node, self.wireFeedRateKeys_)
+        # --> get wireArea
+        wireArea = self.wireArea_
+        # --> get meltArea
+        meltArea = get_first_non_null(node, self.meltAreaKeys_)
+        # --> get meltVelocity
+        meltVelocity = get_first_non_null(node, self.meltVelocityKeys_)
+        if ((wireFeedRate is not None) and
+                (wireArea is not None) and
+                (meltArea is not None) and
+                (meltVelocity is not None)):
+            log(f"Remelt ratio parameters: ({wireFeedRate}, {wireArea}, "
+                f"{meltArea}, {meltVelocity})")
+        try:
+            # result = 1 - wireFeedRate*wireArea/meltArea/meltVelocity
+            numerator = np.outer(np.asarray(wireFeedRate),
+                                 np.asarray(wireFeedRate)).ravel()
+            denominator = np.outer(np.asarray(meltArea),
+                                   np.asarray(meltVelocity)).ravel()
+            result = tuple((1 - np.outer(numerator, 1/denominator)).ravel())
+            if len(result) == 1:
+                result = result[0]
+            log(f"Remelt ratio ({node.contents['Sample Name']}): {result}")
+        except TypeError:
+            result = None
+        else:
+            node.contents[self.name] = result
+        return result
+
+
+# ############### </Node Functions> ############### #
+
+
+def get_attributes(root, exclude=("Sample Name", "Parent Sample Name")):
     """
     Returns a list of unique attributes accessible from the tree
     originating at `root`. This excludes "Sample Name" and
@@ -383,21 +443,21 @@ log(f"{len(nodes)} nodes constructed.")
 
 # Generate trees that connect parent nodes ("Parent Sample Node") to
 # child nodes ("Sample Name"). Any node that does not have a parent
-# is a root. lineage is a list of all roots generated from the nodes
+# is a root. forest is a list of all roots generated from the nodes
 # read above.
 log("Generating tree structures...")
 
-lineage = generate_tree(
+forest = generate_tree(
     get_nodeid=get('Sample Name'),
     get_parent=get('Parent Sample Name'),
-    cmp=strcmp(str.strip))(nodes)
+    cmp=strcmp(str.strip, str.lower))(nodes)
 
-log(f"{len(lineage)} trees generated.")
+log(f"{len(forest)} trees generated.")
 
 # generate a set of unique attributes across all root nodes (tree)
 log("Generating attribute set...")
 attributes = set()
-for root in lineage:
+for root in forest:
     attributes = attributes.union(get_attributes(root))
 # attributes = list(attributes)
 log(f"{len(attributes)} identified.")
@@ -405,18 +465,22 @@ log(f"{len(attributes)} identified.")
 # aggregate (collect data from child nodes) then propagate (push data
 # down to children).
 log("Aggregating/propagating between nodes...")
-for root in lineage:
+for root in forest:
     for attr in attributes:
         # propagate(attr)(root)
         # aggregate(get(attr), reduce=put(attr, overwrite=False))(root)
         # propagate(attr)(root)
         # aggregate and propagate reductions
         # for reduction in (mean_reduce(attr),):
-        for reduction in (unique(attr),
-                          mean(attr),
-                          std(attr),
-                          minimum(attr),
-                          maximum(attr)):
+        # for reduction in (flatten(attr),
+        #                   mean(attr),
+        #                   std(attr),
+        #                   minimum(attr),
+        #                   maximum(attr),
+        #                   unique(attr)):
+        # for reduction in (flatten(attr),
+        #                   unique(attr)):
+        for reduction in (flatten(attr),):
             aggregate(get(attr), reduce=reduction)(root)
             propagate(reduction.key)(root)
         propagate(attr)(root)
@@ -426,18 +490,45 @@ log("Cleaning up empty attributes...")
 # drop any propagated null values and the lists they create
 for node in nodes:
     for key, value in iter(node.contents.items()):
-        if isinstance(value, list):
-            node.contents[key] = [x for x in value if x is not None]
-            if len(node.contents[key]) == 0:
-                node.contents[key] = ''
+        if is_container(value):
+            reduced = [x for x in value if x is not None]
+            if len(reduced) == 0:
+                reduced = ''
             elif len(node.contents[key]) == 1:
-                node.contents[key] = node.contents[key][0]
+                reduced = reduced[0]
+            node.contents[key] = reduced
 log("Finished cleaning empty attributes.")
+
+
+# ############### Post aggregation functions ############### #
+# this can easily be pulled into a yaml or json formatted input file...
+remelt_ratio = RemeltRatio()\
+    .set_wire_diameter(4.7)\
+    .add_melt_velocity_key("Summary: Robot Travel Speed (mm/s)")\
+    .add_wire_feed_rate_key("Summary: Wire Feed Speed (mm/s)")\
+    .add_wire_feed_rate_key("Weld Main Stage Data: Heat Wirefeed Speed (mm/s)")\
+    .add_melt_velocity_key("Weld Main Stage Data: Travel Speed (mm/s)")\
+    .add_wire_feed_rate_key("Weld Fill Stage Data: Heat Wirefeed Speed (mm/s)")\
+    .add_wire_feed_rate_key("Weld End Stage Data: Heat Wirefeed Speed (mm/s)")\
+    .add_melt_area_key("Fusion zone area (mm^2)")
+
+log("Calculating functions...")
+for node in nodes:
+    # operations calculated from accumulated data
+    remelt_ratio(node)
+    # vector statistics
+    for key, value in list(node.contents.items()):
+        for function in (Maximum(key),
+                         Minimum(key),
+                         Mean(key),
+                         StdDev(key)):
+            function(node)
+log("Finished calculations.")
 
 # create a dataframe from the node data.
 # df = to_dataframe(nodes)
 log("Generating pandas.DataFrame from roots...")
-roots_only = to_dataframe(lineage)
+roots_only = to_dataframe(forest)
 log(f"{len(roots_only)} records stored in roots DataFrame.")
 log("Generating pandas.DataFrame from all nodes...")
 full = to_dataframe(nodes)
