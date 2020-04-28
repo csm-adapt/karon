@@ -10,7 +10,7 @@
 # subsequent iteration. For now assume an unreadable/unwritable node
 # property extends to all attributes.
 
-from .specialized import OpNode
+from karon.operational import OpNode
 
 
 class Sample(OpNode):
