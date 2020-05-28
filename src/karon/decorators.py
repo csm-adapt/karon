@@ -4,6 +4,9 @@ from functools import wraps
 # import petname
 import warnings
 
+import logging
+_logger = logging.getLogger()
+
 
 # name = lambda: petname.generate(3)
 # uid = lambda: str(uuid())
@@ -33,7 +36,9 @@ def requires(*keys, **defaults):
             kwds.update(attributes)
             for k in keys:
                 if k not in kwds:
-                    raise RequirementError(f"{func.__name__} requires {k}")
+                    raise RequirementError(f"{func.__name__} requires {k}. "
+                                           f"{k} not found in "
+                                           f"{attributes.keys()}.")
             return proc(**kwds)
         return func
     return wrapper
