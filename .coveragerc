@@ -1,7 +1,7 @@
 # .coveragerc to control coverage.py
 [run]
 branch = True
-source = */convey/*
+source = */karon/*
 # omit = bad_file.py
 
 [report]

@@ -2,4 +2,4 @@
 Contributors
 ============
 
-* Branden Kappes <bkappes@mines.edu>
+* Branden Kappes <bkappes@kmmd.io>

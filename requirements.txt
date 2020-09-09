@@ -5,3 +5,6 @@
 # numpy==1.13.3
 # scipy==1.0
 
+networkx>=2.5
+numpy>=1.19
+petname>=2.6
