@@ -2,228 +2,219 @@
 # Object that is a hashable attribute of node in the graph
 #
 
-import copy
-
 import logging
 _logger = logging.getLogger(__name__)
 
-# use petnames as the uuid
-try:
-    from petname import generate
-    from functools import partial
-    uuid = partial(generate, words=5)
-except:
-    _logger.info("Failed to load requirements for human readable UIDs.")
-    from uuid import uuid4 as uuid
+from ..base import UniqueID, Named, Serializable
+from ..base.util import ensure_iterable
+from collections.abc import MutableSet
 
+class Attribute(Named, UniqueID, Serializable):
+    """
+    Attribute used to hold information in the node of a graph. Each
+    attribute has a unique ID, any number of names/synonyms, and a value.
 
-class Hashable:
-    def __init__(self):
-        """Hashable object"""
-        self.__key = str(uuid())
+    Attributes can be identified by their `Attribute.uid` or by any one
+    of the synonymous `Attribute.names`.
+
+    Attributes are JSON serializable.
+
+    Examples
+    ========
+
+    :python:```
+    # create an empty Attribute
+    attr = Attribute() # creates an attribute with a unique ID.
+
+    # create an unnamed attribute with value 1.234
+    attr = Attribute(value=1.234)
+
+    # create a named attribute with value 1.234
+    attr = Attribute("foo", 1.234)
+    attr = Attribute(["foo"], 1.234) # equivalent
+    ```
+    """
+    def __init__(self, names=set(), value=None, uid=None):
+        if isinstance(names, Attribute):
+            obj = names # give it a more reasonable name
+            value = obj.value
+            names = obj.names
+        elif isinstance(names, dict):
+            kwds = names # give it a more reasonable name
+            value = kwds.get("value", None)
+            names = kwds.get("names", set())
+            uid = kwds.get("uid", None)
+        UniqueID.__init__(self, uid=uid)
+        Named.__init__(self, names=ensure_iterable(names))
+        self.value = value
 
     def __hash__(self):
-        return hash(self.__key)
+        return UniqueID.__hash__(self)
 
-    def __repr__(self):
-        return self.__key
+    def __contains__(self, obj):
+        return ((obj == self) or
+                (obj == self.uid) or
+                (Named.__contains__(self, obj)))
 
-    def __str__(self):
-        return self.__key
+    # def __le__(self, rhs):
+    #     return hash(self) <= hash(rhs)
+    #
+    # def __ge__(self, rhs):
+    #     return hash(self) >= hash(rhs)
 
     def tojson(self):
-        return {"key": self.__key}
+        rval = dict()
+        rval.update(UniqueID.tojson(self))
+        rval.update(Named.tojson(self))
+        rval.update({"value": self.value})
+        return rval
 
     @classmethod
     def fromjson(cls, data):
-        rval = cls()
-        rval.__key = data["key"]
+        uid = UniqueID.fromjson(data)
+        names = Named.fromjson(data)
+        return  cls(value = data.get("value", None),
+                    names = names,
+                    uid = uid.uid)
+
+
+class AttributeSet(MutableSet, Serializable):
+    """
+    AttributeSet contains any number of Attributes with the same name,
+    but only one unique Attribute, as defined by its unique ID.
+
+    Examples
+    ========
+
+    :python:```
+    # create an empty list
+    alist = AttributeSet()
+
+    # create a list of Attributes from a list of names, each with a
+    # unique ID
+    names = ["hello", "world"]
+    alist = AttributeSet(names)
+
+    # from a JSON-formatted file
+    with open("myfile.json") as ifs:
+        alist = AttributeSet.load(ifs)
+
+    # write to a JSON formatted-file
+    with open("myfile.json", "w") as ifs:
+        alist.dump(ifs)
+
+    # add a new attribute to the list
+    alist.add("name") # a new Attribute named "name"
+
+    # add a new attribute to the list and set the value to 1.234
+    alist.add("name").value = 1.234
+
+    # set an attribute named "foo"
+    alist.set("foo", 1.234) # if only one Attribute is named "foo"
+    alist.set("foo", 1.234, setall=True) # multiple Attributes named "foo"
+    ```
+    """
+    def __init__(self, items=set()):
+        self.attributes = set()
+        for attr in items:
+            self.add(attr)
+
+    def get(self, obj):
+        """
+        Searches the AttributeSet for all entries matching `obj`.
+        This always returns a list of Attributes, even if only one matching
+        Attribute is found.
+
+        :returns: list of Attribute objects.
+        """
+        if isinstance(obj, Attribute):
+            return [obj] if obj in self.attributes else []
+        else:
+            return [k for k in self.attributes if obj in k]
+
+    def __contains__(self, obj):
+        return any([(obj in attr) for attr in self.attributes])
+
+    def __iter__(self):
+        return iter(self.attributes)
+
+    def __len__(self):
+        return len(self.attributes)
+
+    def union(self, aset):
+        """
+        Returns the union of the objects in this AttributeSet and in
+        `aset`.
+
+        :param aset: The other set which which to form the union.
+        :type aset: AttributeSet
+
+        :returns: The union of the two sets.
+        :rtype: AttributeSet
+        """
+        rval = AttributeSet(aset)
+        for attr in self:
+            try:
+                rval.add(attr)
+            except ValueError:
+                pass
         return rval
 
-    # comparison operators
-    def __lt__(self, rhs):
-        return hash(self) < hash(rhs)
+    def add(self, obj):
+        """
+        All objects added to an AttributeSet must be Attributes.
+        If `obj` is not an Attribute instance, an Attribute instance
+        will be created with `obj` as the name of the attribute, e.g.
+        :python:`Attribute(names=[obj])`. This differs from python's
+        `set.add` method, which returns `None`.
 
-    def __le__(self, rhs):
-        return hash(self) <= hash(rhs)
+        :returns: A reference to the added Attribute.
+        """
+        if not isinstance(obj, Attribute):
+            obj = Attribute(names=obj)
+        if obj in self:
+            raise ValueError("Cannot add a duplicate Attribute. "
+                             f"Offending UID: {obj.uid}.")
+        self.attributes.add(obj)
+        return obj
 
-    def __eq__(self, rhs):
-        return hash(self) == hash(rhs)
+    def discard(self, obj):
+        """
+        Since all objects in an AttributeSet must be Attributes, any
+        attribute in which `obj` is found are removed.
+        """
+        keys = self.get(obj)
+        for attr in keys:
+            self.attributes.discard(attr)
 
-    def __ne__(self, rhs):
-        return hash(self) != hash(rhs)
+    def set(self, obj, value, setall=False):
+        """
+        Sets the value of the attribute matching `obj` to `value`.
+        If no such attribute matches, a new attribute named `obj` is
+        created and the value set.
 
-    def __ge__(self, rhs):
-        return hash(self) >= hash(rhs)
-
-    def __gt__(self, rhs):
-        return hash(self) > hash(rhs)
-
-
-class Attributes(dict, Hashable):
-    class Key(list, Hashable):
-        def __new__(cls, *args, **kwds):
-            try:
-                if isinstance(args[0], Attributes.Key):
-                    return copy.deepcopy(args[0])
-            except IndexError:
-                pass
-            return list.__new__(cls)
-
-        def __init__(self, *args, **kwds):
-            """
-            Special hashable object to be used as a key in a hashmap (dictionary).
-
-            :param args: (optional) The type of the first argument determines the
-                behavior of the constructor.
-                1. If `args` is empty, a new AttributeKey is created.
-                2. If `args[0]` is an AttributeKey instance, then a duplicate of
-                   the key is created. All subsequent arguments are ignored.
-                3. If `args` is not empty and `args[0]` is not an AttributeKey,
-                   then the arguments are treated as alternative names.
-            :param kwds: (optional) Keywords passed to the base class.
-
-            Examples
-            --------
-            >>> repr(AttributeKey())
-            '3315985523384268967: []'
-
-            >>> repr(AttributeKey("hello", "world"))
-            '-4982838445653643589: ["hello", "world"]'
-
-            >>> repr(AttributeKey(("hello", "world")))
-            '-6189777134337509944: [("hello", "world")]'
-            """
-            Hashable.__init__(self)
-            try:
-                if isinstance(args[0], Attributes.Key):
-                    return
-            except IndexError:
-                pass
-            # note the missing *args. If the user wants to specify mul...
-            list.__init__(self, args, **kwds)
-
-        def __contains__(self, value):
-            return (value == Hashable.__str__(self)) or \
-                   list.__contains__(self, value)
-
-        def __hash__(self):
-            return Hashable.__hash__(self)
-
-        def __str__(self):
-            return self.__repr__()
-
-        def __repr__(self):
-            return f"{Hashable.__str__(self)}: {list.__repr__(self)}"
-
-        def tojson(self):
-            rval = Hashable.tojson(self)
-            rval["contents"] =
-
-        @property
-        def name(self):
-            return Hashable.__str__(self)
-
-    def __new__(cls, *args, **kwds):
+        :returns: Reference to the Attribute(s) whose value(s) is/are set.
+        """
+        attrs = self.get(obj)
+        # What happens if more than one attribute matches?
+        if len(attrs) > 1:
+            if setall:
+                return [self.set(attr, value) for attr in attrs]
+            else:
+                raise KeyError(f"{len(attrs)} attributes found that match {obj}.")
         try:
-            if isinstance(args[0], Attributes):
-                return copy.deepcopy(args[0])
+            # One or zero matching attributes found.
+            attr = attrs[0]
         except IndexError:
-            pass
-        return dict.__new__(cls)
+            # No matching attribute found: create a new Attribute.
+            attr = self.add(Attribute(names=[obj]))
+        # set the attribute
+        attr.value = value
+        return attr
 
-    def __init__(self, *args, **kwds):
-        """
-        Attributes dictionary. Keys are converted to AttributeKey objects.
-        Any value objects are left unchanged.
+    def tojson(self):
+        return [attr.tojson() for attr in self.attributes]
 
-        :param args: (optional) The type of the first argument determines the
-            behavior of the constructor.
-            1. If `args` is empty, a new Attributes object is created.
-            2. If `args[0]` is an Attributes instance, then a duplicate of
-               the map is created. All subsequent arguments are ignored.
-        :param kwds: (optional) Keywords passed to the base class.
-        """
-        Hashable.__init__(self)
-        try:
-            if isinstance(args[0], Attributes):
-                return
-        except IndexError:
-            pass
-        dict.__init__(self, *args, **kwds)
-        keys = list(self.keys())
-        for k in keys:
-            dict.__setitem__(self, Attributes.Key(k),
-                             dict.__getitem__(self, k))
-            dict.__delitem__(self, k)
-
-    def __hash__(self):
-        return Hashable.__hash__(self)
-
-    def __contains__(self, key):
-        return any([(key in k) for k in self])
-
-    def __str__(self):
-        return dict.__str__(self)
-
-    def __repr__(self):
-        return dict.__repr__(self)
-
-    def __delitem__(self, key):
-        keys = self.get_key(key)
-        for k in keys:
-            dict.__delitem__(self, k)
-
-    def __getitem__(self, key):
-        """
-        Since multiple values may share the same key label, this will return
-        a list of matching values, even if only one item is found.
-        """
-        keys = self.get_key(key)
-        return [dict.__getitem__(self, k) for k in keys]
-
-    def __setitem__(self, key, value):
-        keys = self.get_key(key)
-        if len(keys) > 1:
-            raise KeyError(f"Multiple Attributes found that match {key}.")
-        try:
-            k = keys[0]
-        except IndexError:
-            k = Attributes.Key(key)
-        dict.__setitem__(self, k, value)
-
-    def get_key(self, key):
-        """
-        Returns a list of Attribute Keys that match "key," or an empty list
-        if none are found.
-        """
-        # If key were an Attributes.Key, then it is possible that the
-        # user provide an invalid key. This will raise a KeyError. If the
-        # user provides an invalid/unfound UID or alternate name, this returns
-        # an empty list. This behavior is inconsistent. Choose one or the
-        # other.
-        # Pro/cons: All codes that use Attributes should count on handling
-        # zero, one, or more returned results. An empty list does not break
-        # this coding paradigm and is currently my best idea.
-        if isinstance(key, Attributes.Key):
-            # check for Attributes.Key object.
-            return [key] if key in self else []
-        else:
-            # the key provided is the hash or an alternative name
-            # Names are not necessarily unique, so multiple hashes may
-            # correlate to the same name.
-            return [k for k in self if key in k]
-
-    def add_synonym(self, key, synonym):
-        """
-        Add a synonym for keys named "key".
-        """
-        for altnames in self.get_key(key):
-            altnames.append(synonym)
-
-
-class CustomEncoder(json.JSONEncoder):
-    def default(self, o):
-        if "tojson" in dir(o):
-            return o.tojson()
-        return json.JSONEncoder.default(self, o)
+    @classmethod
+    def fromjson(cls, data):
+        return cls(items=[Attribute.fromjson(pkg) for pkg in data])

@@ -4,10 +4,9 @@
 import sys
 import unittest
 import numpy as np
-from karon.graph import Attributes
-from karon.functions import (mean,
-                             median,
-                             std)
+from karon.base.util import ensure_float
+from karon.graph import Attribute, AttributeSet
+from karon.functions import (state, mean, median, std)
 
 import logging
 # _logger = logging.getLogger(__name__)
@@ -24,74 +23,131 @@ class TestFunctions(unittest.TestCase):
         self.logger.setLevel(logging.INFO)
         self.logger.addHandler(self.handler)
         # construct a known set of attributes
-        attrs = Attributes()
-        attrs["foo"] = 1
-        attrs["bar"] = 2
-        attrs["baz"] = 3
-        attrs.add_synonym("foo", "foobar")
-        attrs.add_synonym("bar", "foobar")
-        attrs.add_synonym("foo", "foobaz")
-        attrs.add_synonym("baz", "foobaz")
-        attrs.add_synonym("foo", "foobarbaz")
-        attrs.add_synonym("bar", "foobarbaz")
-        attrs.add_synonym("baz", "foobarbaz")
+        attrs = AttributeSet()
+        attrs.add(Attribute("foo", 1))
+        attrs.add(Attribute("bar", 2))
+        attrs.add(Attribute("baz", 3))
+        attrs.add(Attribute("goo", 4))
+        attrs.add(Attribute("ber", 'a'))
+        attrs.add(Attribute("goober", 3))
+        # set some synonyms
+        for attr in attrs.get("foo"):
+            attr.add("foobar")
+            attr.add("foobaz")
+            attr.add("foobarbaz")
+        for attr in attrs.get("bar"):
+            attr.add("foobar")
+            attr.add("foobarbaz")
+        for attr in attrs.get("baz"):
+            attr.add("foobaz")
+            attr.add("foobarbaz")
+        for attr in attrs.get("goo"):
+            attr.add("goober")
+        for attr in attrs.get("ber"):
+            attr.add("goober")
         self.attrs = attrs
         # print
-        msg = "\n".join(["    " + str(k) + ": " + str(v)
-                        for k,v in self.attrs.items()])
-        self.logger.info(f"Attributes:\n{msg}")
+        # self.logger.info(f"Attributes:\n{attrs.dumps(indent=4)}")
 
     def tearDown(self):
         self.logger.removeHandler(self.handler)
 
+    def test_state(self):
+        def mymin(aset):
+            return np.nanmin([ensure_float(x.value) for x in aset])
+
+        def mydot(aset, bset):
+            x1 = np.array([ensure_float(x.value) for x in aset])
+            x2 = np.array([ensure_float(x.value) for x in bset])
+            return np.nansum(np.multiply(x1, x2))
+
+        for key, value in (("foo", 1),
+                           ("bar", 2),
+                           ("baz", 3),
+                           ("foobar", 1),
+                           ("foobaz", 1),
+                           ("foobarbaz", 1),
+                           ("goober", 3)):
+            dest = f"min {key}"
+            fmin = state(dest, aset=key)(mymin)
+            attrs = fmin(self.attrs)
+            values = [attr.value for attr in attrs.get(dest)]
+            self.assertTrue(len(values), 1)
+            self.assertEqual(values[0], value, f"min({key}) = {values[0]} != value.")
+            self.assertIs(attrs, self.attrs)
+        for k1, k2, value in (("foo", "bar", 2),
+                           ("bar", "baz", 6),
+                           ("foobarbaz", "foobarbaz", 14),
+                           ("goober", "goober", 25)):
+            dest = f"rsq({k1}, {k2})"
+            fdot = state(dest, aset=k1, bset=k2)(mydot)
+            attrs = fdot(self.attrs)
+            values = [attr.value for attr in attrs.get(dest)]
+            self.assertTrue(len(values), 1)
+            self.assertEqual(values[0], value, f"dot({k1}, {k2}) = {values[0]} != {value}.")
+            self.assertIs(attrs, self.attrs)
+
     def test_mean(self):
-        self.logger.info("Testing mean")
+        # self.logger.info("Testing mean")
         for key, value in (("foo", 1),
                            ("bar", 2),
                            ("baz", 3),
                            ("foobar", 1.5),
                            ("foobaz", 2),
-                           ("foobarbaz", 2)):
+                           ("foobarbaz", 2),
+                           ("goober", 3.5)):
             dest = f"mean {key}"
-            rval = mean(key)(self.attrs)
-            self.assertEqual(rval[dest], [value], f"mean({key}) failed.")
-            self.assertIsNot(rval, self.attrs)
+            attrs = mean(key)(self.attrs)
+            values = [attr.value for attr in attrs.get(dest)]
+            self.assertEqual(values, [value], f"mean({key}) failed.")
+            self.assertIs(attrs, self.attrs)
         # barbaz
-        rval = mean("barbaz")(self.attrs)
-        self.assertEqual(rval["barbaz"], [])
-        self.assertIs(rval, self.attrs)
+        dest = "mean barbaz"
+        attrs = mean("barbaz", dest)(self.attrs)
+        values = [attr.value for attr in attrs.get(dest)]
+        self.assertEqual(values, [])
+        self.assertIs(attrs, self.attrs)
 
     def test_median(self):
-        self.logger.info("Testing median")
+        # self.logger.info("Testing median")
         for key, value in (("foo", 1),
                            ("bar", 2),
                            ("baz", 3),
                            ("foobar", 1.5),
                            ("foobaz", 2),
-                           ("foobarbaz", 2)):
+                           ("foobarbaz", 2),
+                           ("goober", 3.5)):
             dest = f"median {key}"
-            rval = median(key)(self.attrs)
-            self.assertEqual(rval[dest], [value], f"median({key}) failed.")
-            self.assertIsNot(rval, self.attrs)
+            attrs = median(key)(self.attrs)
+            values = [attr.value for attr in attrs.get(dest)]
+            self.assertEqual(values, [value], f"median({key}) failed.")
+            self.assertIs(attrs, self.attrs)
         # barbaz
-        rval = median("barbaz")(self.attrs)
-        self.assertEqual(rval["barbaz"], [])
-        self.assertIs(rval, self.attrs)
+        dest = "median barbaz"
+        attrs = median("barbaz", dest)(self.attrs)
+        values = [attr.value for attr in attrs.get(dest)]
+        self.assertEqual(values, [])
+        self.assertIs(attrs, self.attrs)
 
     def test_std(self):
-        self.logger.info("Testing std")
+        # self.logger.info("Testing std")
         for key, value in (("foo", 0),
                            ("bar", 0),
                            ("baz", 0),
                            ("foobar", 0.5),
                            ("foobaz", 1),
-                           ("foobarbaz", 0.816496580927726)):
+                           ("foobarbaz", 0.816496580927726),
+                           ("goober", 0.5)):
             dest = f"std {key}"
-            rval = std(key)(self.attrs)
-            self.assertAlmostEqual(rval[dest], [value],
-                                   f"std({key}) failed.")
-            self.assertIsNot(rval, self.attrs)
+            attrs = std(key)(self.attrs)
+            values = [attr.value for attr in attrs.get(dest)]
+            self.assertTrue(len(values), 1)
+            self.assertAlmostEqual(values[0], value,
+                            f"std({key}) failed: {values[0]} != {value}.")
+            self.assertIs(attrs, self.attrs)
         # barbaz
-        rval = std("barbaz")(self.attrs)
-        self.assertEqual(rval["barbaz"], [])
-        self.assertIs(rval, self.attrs)
+        dest = "std barbaz"
+        attrs = std("barbaz", dest)(self.attrs)
+        values = [attr.value for attr in attrs.get(dest)]
+        self.assertEqual(values, [])
+        self.assertIs(attrs, self.attrs)
