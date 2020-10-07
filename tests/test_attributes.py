@@ -171,6 +171,22 @@ class TestAttributeSet(unittest.TestCase):
             self.assertIn(name, names)
             attr.add(name)
             self.check_uid_unique(attr)
+        # create from dict
+            attrs = {
+                "foo": 1.234,
+                "bar": 5.678,
+                "baz": 9.012
+            }
+            names = attrs
+            aset = AttributeSet(attrs)
+            self.assertEqual(len(aset), 3)
+            for attr in aset:
+                name = attr.pop()
+                self.assertEqual(len(attr), 0)
+                self.assertEqual(attr.value, attrs[name])
+                self.assertIn(name, names)
+                attr.add(name)
+                self.check_uid_unique(attr)
         # create from AttributeSet
         aset2 = AttributeSet(aset)
         for attr in aset2:
@@ -194,10 +210,10 @@ class TestAttributeSet(unittest.TestCase):
             {"names": "baz", "value": 9.012}
         ]
         expected = AttributeSet(attrs)
-        aset = AttributeSet(attrs[:2])
-        bset = AttributeSet(attrs[2:])
+        aset = AttributeSet([e for e in expected][:2])
+        bset = AttributeSet([e for e in expected][2:])
         cset = aset.union(bset)
-        self.assertEqual(expected, cset)
+        self.assertEqual(expected, cset, msg=f"\n{expected.dumps(indent=4)} !=\n{cset.dumps(indent=4)}")
         self.assertIsNot(expected, cset)
 
 

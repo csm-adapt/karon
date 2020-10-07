@@ -52,9 +52,12 @@ class Attribute(Named, UniqueID, Serializable):
         return UniqueID.__hash__(self)
 
     def __contains__(self, obj):
-        return ((obj == self) or
-                (obj == self.uid) or
-                (Named.__contains__(self, obj)))
+        if isinstance(obj, Attribute):
+            return (hash(obj) == hash(self))
+        else:
+            return ((obj == hash(self)) or
+                    (obj == self.uid) or
+                    (Named.__contains__(self, obj)))
 
     # def __le__(self, rhs):
     #     return hash(self) <= hash(rhs)
@@ -116,8 +119,7 @@ class AttributeSet(MutableSet, Serializable):
     """
     def __init__(self, items=set()):
         self.attributes = set()
-        for attr in items:
-            self.add(attr)
+        self.union(items)
 
     def get(self, obj):
         """
@@ -133,32 +135,36 @@ class AttributeSet(MutableSet, Serializable):
             return [k for k in self.attributes if obj in k]
 
     def __contains__(self, obj):
-        return any([(obj in attr) for attr in self.attributes])
+        for attr in self.attributes:
+            if (obj in attr):
+                return True
+        return False
+
+    def __eq__(self, rhs):
+        # if the two AttributeSets are not the same length, they cannot
+        # be equivalent
+        if len(self) != len(rhs):
+            return False
+        # Check that all attributes in rhs are also in self.
+        for attr in rhs:
+            if attr not in self:
+                return False
+        # If rhs is not an AttributeSet, but is, for example, a list of
+        # Attributes, the above algorithms will not capture the case where
+        # the list and the AttributeSet are the same length, but there are
+        # duplicate entries in the list. If, however, both are AttributeSets,
+        # then this is unnecessary, since duplicates are not allowed in sets.
+        if not isinstance(rhs, AttributeSet):
+            for attr in self:
+                if attr not in rhs:
+                    return False
+        return True
 
     def __iter__(self):
         return iter(self.attributes)
 
     def __len__(self):
         return len(self.attributes)
-
-    def union(self, aset):
-        """
-        Returns the union of the objects in this AttributeSet and in
-        `aset`.
-
-        :param aset: The other set which which to form the union.
-        :type aset: AttributeSet
-
-        :returns: The union of the two sets.
-        :rtype: AttributeSet
-        """
-        rval = AttributeSet(aset)
-        for attr in self:
-            try:
-                rval.add(attr)
-            except ValueError:
-                pass
-        return rval
 
     def add(self, obj):
         """
@@ -168,7 +174,12 @@ class AttributeSet(MutableSet, Serializable):
         :python:`Attribute(names=[obj])`. This differs from python's
         `set.add` method, which returns `None`.
 
+        Note that this will not add all elements from an iterable.
+        For this application, use `union`.
+
         :returns: A reference to the added Attribute.
+
+        :raises: ValueError if the object already exists in the AttributeSet.
         """
         if not isinstance(obj, Attribute):
             obj = Attribute(names=obj)
@@ -177,6 +188,26 @@ class AttributeSet(MutableSet, Serializable):
                              f"Offending UID: {obj.uid}.")
         self.attributes.add(obj)
         return obj
+
+    def union(self, iterable):
+        """
+        Adds every element from the iterable "iterable" as a new
+        Attribute into this AttributeSet.
+
+        :params iterable: from which to create attributes.
+        :type iterable: iterable (list, tuple, AttributeSet, etc.)
+
+        :returns: Reference to this AttributeSet
+        :rtype: AttributeSet
+        """
+        if isinstance(iterable, dict):
+            items = [Attribute(names=k, value=v) for k,v in iterable.items()]
+        else:
+            items = list(iterable)
+        self.attributes = self.attributes.union(
+            [a for a in items if isinstance(a, Attribute)],
+            [Attribute(names=a) for a in items if not isinstance(a, Attribute)])
+        return self
 
     def discard(self, obj):
         """

@@ -427,3 +427,28 @@ class MyMutableMap(MutableMapping):
 
 
 isinstance(MyMutableMap(), dict)
+
+
+# ##### networkx ##### #
+import networkx as nx
+
+dg = nx.DiGraph()
+dg.add_edges_from([
+    (1, 3),
+    (1, 4),
+    (4, 6),
+    (4, 7),
+    (7, 10),
+    (10, 11),
+    (10, 12),
+    (2, 4),
+    (2, 5),
+    (5, 8),
+    (5, 9),
+    (8, 10)
+])
+
+list(nx.dfs_preorder_nodes(dg, source=7))
+list(nx.dfs_preorder_nodes(dg, source=8))
+
+list(dg.predecessors(10))

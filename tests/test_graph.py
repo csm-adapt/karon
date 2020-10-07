@@ -2,7 +2,7 @@ import sys
 import unittest
 import numpy as np
 import sqlite3
-from karon.graph import Node
+from karon.graph import Node, DiGraph
 from karon.graph import AttributeSet
 
 import logging
@@ -17,7 +17,7 @@ def execute(conn, *cmds):
     return conn.execute(" ".join(cmds) + ";")
 
 
-class TestGraph(unittest.TestCase):
+class TestNode(unittest.TestCase):
     def setUp(self):
         # set up logging handler
         self.handler = logging.StreamHandler(sys.stdout)
@@ -114,3 +114,64 @@ class TestGraph(unittest.TestCase):
         #                  f"{node.dumps(indent=4)}\n\n"
         #                  f"{dupl.dumps(indent=4)}")
         self.assertIsNot(node, dupl)
+
+
+class TestDiGraph(unittest.TestCase):
+    @staticmethod
+    def generate_name():
+        names = ["foo", "bar", "baz"]
+        return np.random.choice(names)
+
+    @staticmethod
+    def generate_name_pairs():
+        return (TestDiGraph.generate_name(), TestDiGraph.generate_name())
+
+    def test_add_nodes(self):
+        nodes = [Node("foo"), Node("bar"), Node("baz")]
+        # add nodes by single names
+        dg = DiGraph()
+        dg.add_node("foo")
+        dg.add_node("bar")
+        dg.add_node("foo")
+        assert len(dg) == 3
+        # add nodes from list of multiple names
+        dg = DiGraph()
+        dg.add_nodes_from(["foo", "bar", "foo"])
+        assert len(dg) == 2
+        # add nodes from a generator of multiple names
+        dg = DiGraph()
+        dg.add_nodes_from(TestDiGraph.generate_name() for _ in range(15))
+        assert len(dg) <= 3
+        # add node from Nodes
+        dg = DiGraph()
+        dg.add_nodes_from(nodes + nodes)
+        assert len(dg) == 3
+
+    def test_add_edges(self):
+        nodes = [Node("foo"), Node("bar"), Node("baz")]
+        # add edges by single name pairs
+        dg = DiGraph()
+        for u, v in [TestDiGraph.generate_name_pairs() for _ in range(5)]:
+            dg.add_edge(u, v)
+        assert len(dg) <= 10
+        assert len(dg.edges) <= 5
+        # add edges from list of name pairs
+        dg = DiGraph()
+        dg.add_edges_from([TestDiGraph.generate_name_pairs() for _ in range(5)])
+        assert len(dg) <= 3
+        assert len(dg.edges) <= 5
+        # add edges from a generator of name pairs
+        dg = DiGraph()
+        dg.add_edges_from(TestDiGraph.generate_name_pairs() for _ in range(5))
+        assert len(dg) <= 3
+        assert len(dg.edges) <= 5
+        # add edges from Nodes
+        dg = DiGraph()
+        for n1, n2 in np.random.choice(nodes, size=(5, 2)):
+            dg.add_edge(n1, n2)
+        assert len(dg) <= 3
+        assert len(dg.edges) <= 5
+        dg = DiGraph()
+        dg.add_edges_from(np.random.choice(nodes, size=(5, 2)))
+        assert len(dg) <= 3
+        assert len(dg.edges) <= 5

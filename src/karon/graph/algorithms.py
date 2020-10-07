@@ -91,14 +91,14 @@ def propagate(dg, source=None):
     """
     if source is None:
         source = roots(dg)
-    source = set(ensure_iterable(source))
+    source = ensure_iterable(source)
     # propagation along gemels (trees that merge, e.g. diamond structures)
     # must propagate from the "right" branch, which would otherwise be
     # skipped.
-    gemels = set([n for n,d in dg.in_degree if d>1])
-    source = source.union(gemels)
+    gemels = [s for n,d in dg.in_degree if d>1 for s in dg.predecessors(n)]
+    # source = source.union(gemels)
     # for every root...
-    for src in source:
+    for src in list(source) + list(gemels):
         # start at the leaf nodes...
         for parent in traverse.preorder(dg, src):
             # parent initiates communication request to the child nodes...
@@ -136,5 +136,5 @@ def disseminate(dg, source=None):
     for n,a,p in zip(traverse.preorder(dg),
                      traverse.preorder(agg),
                      traverse.preorder(prop)):
-        n.attrs = n.attrs.union(a.attrs.union(p.attrs))
+        n.attrs.union(a.attrs.union(p.attrs))
     return dg

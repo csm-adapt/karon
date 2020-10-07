@@ -96,7 +96,7 @@ def state(dest, **kwds):
 
     # create a state function that calculates the minimum of all
     # Attributes in an AttributeSet that have a name "hello world".
-    state_min = state("min(hello world)", aset="hello world")
+    state_min = state("min(hello world)", aset="hello world")(mymin)
 
     def dot(aset, bset):
         x1 = [ensure_float(x.value) for x in aset]

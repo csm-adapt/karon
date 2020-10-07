@@ -25,6 +25,9 @@ __pycache__/*
 .installed.cfg
 *.egg-info
 
+# virtual environment
+venv/*
+
 # Unittest and coverage
 htmlcov/*
 .coverage
